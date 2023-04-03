@@ -1,0 +1,66 @@
+Parameters:
+  AMItoUse:
+    Description: A private EC2 server 
+    Type: String 
+  EnvironmentName:
+    Description: Name that will be appended to our resources
+    Type: String
+  Subnet:
+    Description: subnet
+    Type: AWS::EC2::Subnet::Id
+
+
+Resources:
+  RoleForSSMAccess:
+    Type: "AWS::IAM::Role"
+    Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - ec2.amazonaws.com
+              Action:
+                - 'sts:AssumeRole'
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  ServerInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+        Roles: 
+          - !Ref RoleForSSMAccess
+
+  WebAccessSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+        VpcId: 
+          Fn::ImportValue:
+              !Sub "${EnvironmentName}-VPCID"
+        GroupDescription: Security Group for chellenge 3
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 10.0.0.0/16
+        SecurityGroupEgress:
+          - IpProtocol: tcp
+            FromPort: -1
+            ToPort: -1
+            CidrIp: 0.0.0.0/0
+
+  ServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+        InstanceType: t3.micro
+        ImageId: !Ref AMItoUse
+        IamInstanceProfile: !Ref ServerInstanceProfile
+        NetworkInterfaces:
+          - AssociatePublicIpAddress: false
+            DeviceIndex: "0"
+            GroupSet: 
+              - Ref: "WebAccessSecurityGroup"
+            SubnetId: 
+              Ref: "Subnet"
+                
